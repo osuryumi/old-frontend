@@ -41,7 +41,6 @@ require_once $df.'/pages/Verify.php';
 require_once $df.'/pages/Welcome.php';
 require_once $df.'/pages/Discord.php';
 require_once $df.'/pages/BlockTotp2fa.php';
-require_once $df.'/../secret/fringuellina.php';
 $pages = [
 	new Login(),
 	new Beatmaps(),
@@ -166,14 +165,15 @@ function setTitle($p) {
 			131 => 'View cake recipe',
 			132 => 'View anticheat reports',
 			133 => 'View anticheat report',
-			134 => 'Restore scores'
+			135 => 'Restore scores',
+			136 => 'User Wipes'
 		];
 		if (isset($namesRipple[$p])) {
-			return __maketitle('Ripple', $namesRipple[$p]);
+			return __maketitle('Kawata', $namesRipple[$p]);
 		} else if (isset($namesRAP[$p])) {
 			return __maketitle('RAP', $namesRAP[$p]);
 		} else {
-			return __maketitle('Ripple', '404');
+			return __maketitle('Kawata', '404');
 		}
 	}
 }
@@ -192,7 +192,7 @@ function printPage($p) {
 	$exceptions = ['pls goshuujin-sama do not hackerino &gt;////&lt;', 'Only administrators are allowed to see that documentation file.', "<div style='font-size: 40pt;'>ATTEMPTED USER ACCOUNT VIOLATION DETECTED</div>
 			<p>We detected an attempt to violate an user account. If you didn't do this on purpose, you can ignore this message and login into your account normally. However if you changed your cookies on purpose and you were trying to access another user's account, don't do that.</p>
 			<p>By the way, the attacked user is aware that you tried to get access to their account, and we removed all permanent login hashes. We wish you good luck in even finding the new 's' cookie for that user.</p>
-			<p>Don't even try.</p>", 9001 => "don't even try"];
+			<p>Don't even try.</p>", 9001 => "kys"];
 	if (!isset($_GET['u']) || empty($_GET['u'])) {
 		// Standard page
 		switch ($p) {
@@ -391,6 +391,18 @@ function printPage($p) {
 				P::AdminRestoreScores();
 			break;
 
+			// Admin panel - Set wipes
+			case 135:
+				sessionCheckAdmin(Privileges::AdminWipeUsers);
+				P::AdminSetWipes();
+			break;
+
+			// Admin panel - User wipes
+			case 136:
+				sessionCheckAdmin(Privileges::AdminWipeUsers);
+				P::AdminUserWipes();
+					break;
+
 			// 404 page
 			default:
 				define('NotFound', '<br><h1>404</h1><p>Page not found. Meh.</p>');
@@ -461,6 +473,7 @@ function printNavbar() {
 		// Just an easter egg that you'll probably never notice, unless you do it on purpose.
 		if (hasPrivilege(Privileges::AdminAccessRAP)) {
 			echo '<li><a href="index.php?p=100"><i class="fa fa-cog"></i>	<b>Admin Panel</b></a></li>';
+			echo '<li><a href="https://old.kawata.pw/phpmyadmin"><i class="fa fa-database"></i>	<b>phpMyAdmin</b></a></li>';
 		}
 	}
 	// Right elements
@@ -488,7 +501,7 @@ function printAdminSidebar() {
 	echo '<div id="sidebar-wrapper" class="collapse" aria-expanded="false">
 					<ul class="sidebar-nav">
 						<li class="sidebar-brand">
-							<a href="#"><b>R</b>ipple <b>A</b>dmin <b>P</b>anel</a>
+							<a href="#"><b>K</b>awata <b>A</b>dmin <b>P</b>anel</a>
 						</li>
 						<li><a href="index.php?p=100"><i class="fa fa-tachometer"></i>	Dashboard</a></li>';
 
@@ -498,7 +511,7 @@ function printAdminSidebar() {
 
 						if (hasPrivilege(Privileges::AdminManageUsers)) {
 							echo '<li><a href="index.php?p=102"><i class="fa fa-user"></i>	Users</a></li>';
-							echo '<li><a href="index.php?p=132"><i class="fa fa-fire"></i>	Anticheat reports</a></li>';
+							// echo '<li><a href="index.php?p=132"><i class="fa fa-fire"></i>	Anticheat reports</a></li>';
 						}
 
 						if (hasPrivilege(Privileges::AdminWipeUsers)) {
@@ -512,7 +525,7 @@ function printAdminSidebar() {
 							echo Fringuellina::RAPCakesListButton();
 
 						if (hasPrivilege(Privileges::AdminManageReports))
-							echo '<li><a href="index.php?p=126"><i class="fa fa-flag"></i>	Reports</a></li>';
+							// echo '<li><a href="index.php?p=126"><i class="fa fa-flag"></i>	Reports</a></li>';
 
 						if (hasPrivilege(Privileges::AdminManagePrivileges))
 							echo '<li><a href="index.php?p=118"><i class="fa fa-group"></i>	Privilege Groups</a></li>';
@@ -1590,10 +1603,19 @@ function printBubble($userID, $username, $message, $time, $through) {
 	</div>';
 }
 
+function printBubbleUserWipes($modid, $username, $text, $time, $evidence) {
+	echo '
+	<img class="circle" src="' . URL::Avatar() . '/' . $modid . '">
+	<div class="bubble">
+		<b>' . $username . '</b> ' . $text . '<br>
+		<span style="font-size: 80%">' . timeDifference($time, time()) .' - Evidence: <i>' . $evidence . '</i></span>
+	</div>';
+}
+
 function rapLog($message, $userID = -1, $through = "RAP") {
 	if ($userID == -1)
 		$userID = $_SESSION["userid"];
-	$GLOBALS["db"]->execute("INSERT INTO rap_logs (id, userid, text, datetime, through) VALUES (NULL, ?, ?, ?, ?);", [$userID, $message, time(), $through]);
+		$GLOBALS["db"]->execute("INSERT INTO rap_logs (id, userid, text, datetime, through) VALUES (NULL, ?, ?, ?, ?);", [$userID, $message, time(), $through]);
 }
 
 function readableRank($rank) {
@@ -1886,10 +1908,10 @@ function giveDonor($userID, $months, $add=true) {
 	global $MailgunConfig;
 	$mailer = new SimpleMailgun($MailgunConfig);
 	$mailer->Send(
-		'Ripple <noreply@'.$MailgunConfig['domain'].'>', $userData['email'],
+		'Kawata <accounts@'.$MailgunConfig['domain'].'>', $userData['email'],
 		'Thank you for donating!',
 		sprintf(
-			"Hey %s! Thanks for donating to Ripple. It's thanks to the support of people like you that we can afford keeping the service up. Your donation has been processed, and you should now be able to get the donator role on discord, and have access to all the other perks listed on the \"Support us\" page.<br><br>%s<br><br>Your donor expires in %s months. Until then, have fun!<br>The Ripple Team",
+			"Hey %s! Thanks for donating to Kawata. It's thanks to the support of people like you that we can afford keeping the service up. Your donation has been processed, and you should now be able to get the donator role on discord, and have access to all the other perks listed on the \"Support us\" page.<br><br>%s<br><br>Your donor expires in %s months. Until then, have fun!<br>The Kawata Team",
 			$username,
 			$TheMoreYouKnow,
 			$monthsExpire

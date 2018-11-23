@@ -3,7 +3,7 @@
 class Login {
 	const PageID = 2;
 	const URL = 'login';
-	const Title = 'Ripple - Login';
+	const Title = 'Kawata - Login';
 	const LoggedIn = false;
 	public $mh_POST = ['u', 'p'];
 	public $error_messages = ['You are not logged in.', 'Session expired. Please login again.', 'Invalid auto-login cookie.', 'You are already logged in.'];
@@ -63,7 +63,7 @@ class Login {
 			// Old frontend shall be seen by no human on earth. Except for
 			// staff members. Those aren't human.
 			if (!hasPrivilege(Privileges::AdminAccessRAP, $us["id"])) {
-				redirect("https://ripple.moe/login");
+				redirect("https://kawata.pw/login");
 			}
 
 			// Get username with right case

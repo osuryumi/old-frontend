@@ -77,6 +77,7 @@ try {
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::ChangeIdentity();
 		break;
+	break;
 		case 'removeBadge':	// TODO
 			sessionCheckAdmin(Privileges::AdminManageBadges);
 			D::RemoveBadge();
@@ -209,6 +210,9 @@ try {
 			sessionCheckAdmin(Privileges::AdminManageSettings);
 			D::RemoveMainMenuIcon();
 		break;
+		case 'setWipes':
+		sessionCheckAdmin(Privileges::AdminWipeUsers);
+		D::setWipes();
 		default:
 			throw new Exception('Invalid action value');
 	}

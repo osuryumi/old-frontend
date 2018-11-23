@@ -83,7 +83,7 @@ class D {
 				}
 				$multiUsername = $multiUserInfo["username"];
 				$multiUserID = $multiUserInfo["userid"];
-				@Schiavo::CM("User **$_POST[u]** registered from same $criteria as **$multiUsername** (https://ripple.moe/?u=$multiUserID). **POSSIBLE MULTIACCOUNT!!!**. Waiting for ingame verification...");
+				@Schiavo::CM("User **$_POST[u]** registered from same $criteria as **$multiUsername** (https://kawata.pw/?u=$multiUserID). **POSSIBLE MULTIACCOUNT!!!**. Waiting for ingame verification...");
 			}
 			// Create password
 			$md5Password = password_hash(md5($_POST['p1']), PASSWORD_DEFAULT);
@@ -173,7 +173,7 @@ class D {
 			$key = randomString(80);
 			$GLOBALS['db']->execute('INSERT INTO password_recovery (k, u) VALUES (?, ?);', [$key, $username]);
 			$mailer = new SimpleMailgun($MailgunConfig);
-			$mailer->Send('Ripple <noreply@'.$MailgunConfig['domain'].'>', $user['email'], 'Ripple password recovery instructions', sprintf("Hey %s! Someone, which we really hope was you, requested a password reset for your account. In case it was you, please <a href='%s'>click here</a> to reset your password on Ripple. Otherwise, silently ignore this email.", $username, 'http://'.$_SERVER['HTTP_HOST'].'/index.php?p=19&k='.$key.'&user='.$username));
+			$mailer->Send('Kawata <accounts@'.$MailgunConfig['domain'].'>', $user['email'], 'Kawata password recovery instructions', sprintf("Hey %s! Someone, which we really hope was you, requested a password reset for your account. In case it was you, please <a href='%s'>click here</a> to reset your password on Kawata. Otherwise, silently ignore this email.", $username, 'http://'.$_SERVER['HTTP_HOST'].'/index.php?p=19&k='.$key.'&user='.$username));
 			redirect('index.php?p=18&s=sent');
 		}
 		catch(Exception $e) {
@@ -323,10 +323,10 @@ class D {
 			if (!$oldData) {
 				throw new Exception("That user doesn\'t exist");
 			}
-			// Check if we can edit this user
-			if ( (($oldData["privileges"] & Privileges::AdminManageUsers) > 0) && $_POST['u'] != $_SESSION['username']) {
-				throw new Exception("You don't have enough permissions to edit this user");
-			}
+			// // Check if we can edit this user
+			// if ( (($oldData["privileges"] & Privileges::AdminManageUsers) > 0) && $_POST['u'] != $_SESSION['username']) {
+			// 	throw new Exception("You don't have enough permissions to edit this user");
+			// }
 			// Check if email is valid
 			if (!filter_var($_POST['e'], FILTER_VALIDATE_EMAIL)) {
 				throw new Exception("The email isn't valid");
@@ -501,10 +501,10 @@ class D {
 			if (!$privileges) {
 				throw new Exception("User doesn't exist");
 			}
-			$privileges = current($privileges);
-			if ( (($privileges & Privileges::AdminManageUsers) > 0) && $_POST['oldu'] != $_SESSION['username']) {
-				throw new Exception("You don't have enough permissions to edit this user");
-			}
+			// $privileges = current($privileges);
+			// if ( (($privileges & Privileges::AdminManageUsers) > 0) && $_POST['oldu'] != $_SESSION['username']) {
+			// 	throw new Exception("You don't have enough permissions to edit this user");
+			// }
 			// No username with mixed spaces
 			if (strpos($_POST["newu"], " ") !== false && strpos($_POST["newu"], "_") !== false) {
 				throw new Exception('Usernames with both spaces and underscores are not supported.');
@@ -524,6 +524,47 @@ class D {
 			// Done, redirect to success page
 			redirect('index.php?p=102&s=User identity changed! It might take a while to change the username if the user is online on Bancho.');
 		}
+		catch(Exception $e) {
+			// Redirect to Exception page
+			redirect('index.php?p=102&e='.$e->getMessage());
+		}
+	}
+
+	/*
+	 * setWipes
+	 * Set wipes function (ADMIN CP)
+	*/
+	public static function setWipes() {
+		try {
+			// Check if everything is set
+			if (!isset($_POST['id']) || !is_numeric($_POST['nwipes']) || empty($_POST['id']) || empty($_POST['username'])) {
+				throw new Exception('Nice troll.');
+			}
+
+			// Check if we can edit this user
+			$privileges = $GLOBALS["db"]->fetch("SELECT privileges FROM users WHERE id = ? LIMIT 1", [$_POST["id"]]);
+			if (!$privileges) {
+				throw new Exception("User doesn't exist");
+			}
+
+			// check if the value is not fucked
+			if ($_POST['nwipes'] > -1 && $_POST['nwipes'] < 4) {
+				$GLOBALS['db']->execute('UPDATE users SET strikes = ? WHERE id = ? LIMIT 1', [$_POST['nwipes'], $_POST["id"]]);
+				// log to log
+				rapLog(sprintf("has updated %s's wipes from %s/3 to %s/3", $_POST['username'], $_POST['cwipes'], $_POST['nwipes']));
+				redirect('index.php?p=102&s=ok');
+			} else {
+				throw new Exception('what the fuck are you doing?');
+			}
+		}
+			// redisConnect();
+			// $GLOBALS["redis"]->publish("peppy:change_username", json_encode([
+			// 	"userID" => intval($_POST["id"]),
+			// 	"newUsername" => $_POST["newu"]
+			// ]));
+			// // rap log
+			// rapLog(sprintf("has changed %s's username to %s", $_POST["oldu"], $_POST["newu"]));
+			// // Done, redirect to success page
 		catch(Exception $e) {
 			// Redirect to Exception page
 			redirect('index.php?p=102&e='.$e->getMessage());
@@ -926,7 +967,7 @@ class D {
 	*/
 	public static function WipeAccount() {
 		try {
-			if (!isset($_POST['id']) || empty($_POST['id'])) {
+			if (!isset($_POST['id']) || empty($_POST['id']) || (!isset($_POST['evidence']) || empty($_POST['evidence']))) {
 				throw new Exception('Invalid request');
 			}
 			$userData = $GLOBALS["db"]->fetch("SELECT username, privileges FROM users WHERE id = ? LIMIT 1", [$_POST["id"]]);
@@ -934,10 +975,10 @@ class D {
 				throw new Exception('User doesn\'t exist.');
 			}
 			$username = $userData["username"];
-			// Check if we can wipe this user
-			if ( ($userData["privileges"] & Privileges::AdminManageUsers) > 0) {
-				throw new Exception("You don't have enough permissions to wipe this account");
-			}
+			// // Check if we can wipe this user
+			// if ( ($userData["privileges"] & Privileges::AdminManageUsers) > 0) {
+			// 	throw new Exception("You don't have enough permissions to wipe this account");
+			// }
 
 			if ($_POST["gm"] == -1) {
 				// All modes
@@ -968,12 +1009,54 @@ class D {
 				$GLOBALS['db']->execute('UPDATE users_stats SET ranked_score_'.$k.' = 0, total_score_'.$k.' = 0, replays_watched_'.$k.' = 0, playcount_'.$k.' = 0, avg_accuracy_'.$k.' = 0.0, total_hits_'.$k.' = 0, level_'.$k.' = 0, pp_'.$k.' = 0 WHERE id = ? LIMIT 1', [$_POST['id']]);
 			}
 
-			// RAP log
-			rapLog(sprintf("has wiped %s's account", $username));
-
-			// Done
-			redirect('index.php?p=102&s=User scores and stats have been wiped!');
+			// Check wipes
+			if (isRestricted($_POST["id"])) {
+				// log to wipes
+				$GLOBALS['db']->execute("INSERT INTO user_wipes (id, userid, modid, datetime, evidence, text) VALUES (NULL, ?, ?, ?, ?, ?);", [$_POST['id'], $_SESSION["userid"], time(), $_POST['evidence'], "has wiped " . $username . ", wipes not touched since user is already restricted."]);
+				// log to rap
+				rapLog(sprintf("has wiped %s's account, wipes not touched since user is already restricted.", $username));
+				// set wipes back to zero, just in case
+				$GLOBALS['db']->execute('UPDATE users SET strikes = 0 WHERE id = ? LIMIT 1', [$_POST['id']]);
+				// redirect
+				redirect('index.php?p=102&s=User scores and stats have been wiped. Since this player is already restricted, not touching wipe count.');
+			} else {
+				$strikeCount = $GLOBALS['db']->fetch("SELECT strikes FROM users WHERE id = ? LIMIT 1", [$_POST["id"]]);
+				if ($strikeCount["strikes"] > 2) {
+					// we want to restrict the user if he has more than 3 wipes.
+					$banDateTime = time();
+					$newPrivileges = $userData["privileges"] | Privileges::UserNormal;
+					$newPrivileges &= ~Privileges::UserPublic;
+					removeFromLeaderboard($_POST['id']);
+					$GLOBALS['db']->execute('UPDATE users SET privileges = ?, ban_datetime = ? WHERE id = ? LIMIT 1', [$newPrivileges, $banDateTime, $_POST['id']]);
+					updateBanBancho($_POST["id"]);
+					// reset wipes
+					$GLOBALS['db']->execute('UPDATE users SET strikes = 0 WHERE id = ? LIMIT 1', [$_POST['id']]);
+					// log to wipes
+					$GLOBALS['db']->execute("INSERT INTO user_wipes (id, userid, modid, datetime, evidence, text) VALUES (NULL, ?, ?, ?, ?, ?);", [$_POST['id'], $_SESSION["userid"], time(), $_POST['evidence'], "has wiped " . $username . ", wipe 4/3, restricted!"]);
+					// log to RAP
+					rapLog(sprintf("has wiped %s's account, wipe 4/3, restricted!", $username));
+					// redirect
+					redirect('index.php?p=102&s=User has been restricted since they has more than 3 wipes!');
+				} else {
+					// just to be sure no one messed around
+					if ($strikeCount["strikes"] < 0) {
+						$GLOBALS['db']->execute('UPDATE users SET strikes = 0 WHERE id = ? LIMIT 1', [$_POST['id']]);
+					} else {
+						$GLOBALS['db']->execute('UPDATE users SET strikes = strikes + 1 WHERE id = ? LIMIT 1', [$_POST['id']]);
+					}
+					// Remove from leaderboards
+					removeFromLeaderboard($_POST['id']);
+					$newStrikeCount = $strikeCount["strikes"] + 1;
+					// log to wipes
+					$GLOBALS['db']->execute("INSERT INTO user_wipes (id, userid, modid, datetime, evidence, text) VALUES (NULL, ?, ?, ?, ?, ?);", [$_POST['id'], $_SESSION["userid"], time(), $_POST['evidence'], "has wiped " . $username . ", wipe " . $newStrikeCount . "/3."]);
+					// log to RAP logs
+					rapLog(sprintf("has wiped %s's account, wipe %s/3", $username, $newStrikeCount));
+					// redirect
+					redirect('index.php?p=102&s=User scores and stats have been wiped.' );
+				}
+			}
 		}
+
 		catch(Exception $e) {
 			redirect('index.php?p=102&e='.$e->getMessage());
 		}
@@ -1147,9 +1230,9 @@ class D {
 				throw new Exception("User doesn't exist");
 			}
 			// Check if we can ban this user
-			if ( ($userData["privileges"] & Privileges::AdminManageUsers) > 0) {
-				throw new Exception("You don't have enough permissions to ban this user");
-			}
+			//if ( ($userData["privileges"] & Privileges::AdminManageUsers) > 0) {
+			//	throw new Exception("You don't have enough permissions to ban this user");
+			//}
 			// Get new allowed value
 			if (!isRestricted($_GET["id"])) {
 				// Restrict, set UserNormal and reset UserPublic
@@ -1166,6 +1249,8 @@ class D {
 			// Change privileges
 			$GLOBALS['db']->execute('UPDATE users SET privileges = ?, ban_datetime = ? WHERE id = ? LIMIT 1', [$newPrivileges, $banDateTime, $_GET['id']]);
 			updateBanBancho($_GET["id"]);
+			// reset wipes, just in case
+			$GLOBALS['db']->execute('UPDATE users SET strikes = 0 WHERE id = ? LIMIT 1', [$_POST['id']]);
 			// Rap log
 			rapLog(sprintf("has %s user %s", ($newPrivileges & Privileges::UserPublic) > 0 ? "removed restrictions on" : "restricted", $userData["username"]));
 			// Done, redirect to success page

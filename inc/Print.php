@@ -19,16 +19,17 @@ class P {
 		}
 		$totalPP = number_format($totalPP);*/
 		$totalPP = "🍆";
-		$recentPlays = $GLOBALS['db']->fetchAll('
-		SELECT
-			beatmaps.song_name, scores.beatmap_md5, users.username,
-			scores.userid, scores.time, scores.score, scores.pp,
-			scores.play_mode, scores.mods
-		FROM scores
-		LEFT JOIN beatmaps ON beatmaps.beatmap_md5 = scores.beatmap_md5
-		LEFT JOIN users ON users.id = scores.userid
-		ORDER BY scores.id DESC
-		LIMIT 10');
+		$recentPlays = [];
+		// $recentPlays = $GLOBALS['db']->fetchAll('
+		// SELECT
+		// 	beatmaps.song_name, scores.beatmap_md5, users.username,
+		// 	scores.userid, scores.time, scores.score, scores.pp,
+		// 	scores.play_mode, scores.mods
+		// FROM scores
+		// LEFT JOIN beatmaps ON beatmaps.beatmap_md5 = scores.beatmap_md5
+		// LEFT JOIN users ON users.id = scores.userid
+		// ORDER BY scores.id DESC
+		// LIMIT 10');
 		$topPlays = [];
 		/*$topPlays = $GLOBALS['db']->fetchAll('SELECT
 			beatmaps.song_name, scores.beatmap_md5, users.username,
@@ -66,6 +67,7 @@ class P {
 		<tr><th class="text-left"><i class="fa fa-clock-o"></i>	Recent plays</th><th>Beatmap</th></th><th>Mode</th><th>Sent</th><th>Score</th><th class="text-right">PP</th></tr>
 		</thead>
 		<tbody>';
+		echo '<tr class="danger"><td colspan=6>Disabled</td></tr>';
 		foreach ($recentPlays as $play) {
 			// set $bn to song name by default. If empty or null, replace with the beatmap md5.
 			$bn = $play['song_name'];
@@ -407,10 +409,6 @@ class P {
 				// Allow to edit only user stats
 				$readonly[0] = 'readonly';
 				$selectDisabled = 'disabled';
-			} elseif (($userData["privileges"] & Privileges::AdminManageUsers) > 0) {
-				// We are trying to edit a user with same/higher rank than us :akerino:
-				redirect("index.php?p=102&e=You don't have enough permissions to edit this user");
-				die();
 			}
 			// Print edit user stuff
 			echo '<div id="wrapper">';
@@ -522,6 +520,10 @@ class P {
 			<td><p class="text-center"><input type="text" name="aka" class="form-control" value="'.htmlspecialchars($userStatsData['username_aka']).'"></td>
 			</tr>';
 			echo '<tr>
+			<td>Wipes</td>
+			<td><p class="text-center"><input type="text" name="wipes" class="form-control" value="'.htmlspecialchars($userData['strikes']).'"readonly></td>
+			</tr>';
+			echo '<tr>
 			<td>Userpage<br><a onclick="censorUserpage();">(reset userpage)</a></td>
 			<td><p class="text-center"><textarea name="up" class="form-control" style="overflow:auto;resize:vertical;height:200px">'.$userStatsData['userpage_content'].'</textarea></td>
 			</tr>';
@@ -603,7 +605,7 @@ class P {
 			<td>Notes for CMs
 			<br>
 			<i>(visible only from RAP)</i></td>
-			<td><textarea name="ncm" class="form-control" style="overflow:auto;resize:vertical;height:500px">' . $userData["notes"] . '</textarea></td>
+			<td><textarea name="ncm" class="form-control" style="overflow:auto;resize:vertical;height:200px">' . $userData["notes"] . '</textarea></td>
 			</tr>';
 			echo '<tr><td>IPs</td><td><ul>';
 			foreach ($ips as $ip) {
@@ -627,6 +629,8 @@ class P {
 									echo '<a href="index.php?p=110&id='.$_GET['id'].'" class="btn btn-success">Edit badges</a>';
 								}
 								echo '	<a href="index.php?p=104&id='.$_GET['id'].'" class="btn btn-info">Change identity</a>';
+								echo '	<a href="index.php?p=135&id='.$_GET['id'].'" class="btn btn-info">Set wipes count</a>';
+								echo '	<a href="index.php?p=136&id='.$_GET['id'].'" class="btn btn-success">User Wipes</a>';
 								if (hasPrivilege(Privileges::UserDonor, $_GET["id"])) {
 									echo '	<a onclick="sure(\'submit.php?action=removeDonor&id='.$_GET['id'].'&csrf='.csrfToken().'\');" class="btn btn-danger">Remove donor</a>';
 								}
@@ -721,6 +725,65 @@ class P {
 			echo '</tbody></form>';
 			echo '</table>';
 			echo '<div class="text-center"><button type="submit" form="system-settings-form" class="btn btn-primary">Change identity</button></div>';
+			echo '</div>';
+		}
+		catch(Exception $e) {
+			// Redirect to exception page
+			redirect('index.php?p=102&e='.$e->getMessage());
+		}
+	}
+
+	/*
+	 * AdminSetWipes
+	 * Prints the admin panel set wipes page
+	*/
+	public static function AdminSetWipes() {
+		try {
+			// Get user data
+			$userData = $GLOBALS['db']->fetch('SELECT * FROM users WHERE id = ?', $_GET['id']);
+			$userStatsData = $GLOBALS['db']->fetch('SELECT * FROM users_stats WHERE id = ?', $_GET['id']);
+			// Check if this user exists
+			if (!$userData || !$userStatsData) {
+				throw new Exception("That user doesn't exist");
+			}
+			// Print edit user stuff
+			echo '<div id="wrapper">';
+			printAdminSidebar();
+			echo '<div id="page-content-wrapper">';
+			// Maintenance check
+			self::MaintenanceStuff();
+			// Print Success if set
+			if (isset($_GET['s']) && !empty($_GET['s'])) {
+				self::SuccessMessageStaccah($_GET['s']);
+			}
+			// Print Exception if set
+			if (isset($_GET['e']) && !empty($_GET['e'])) {
+				self::ExceptionMessageStaccah($_GET['e']);
+			}
+			echo '<p align="center"><font size=5><i class="fa fa-eraser"></i>	Set wipes count</font></p>';
+			echo '<table class="table table-striped table-hover table-50-center">';
+			echo '<tbody><form id="system-settings-form" action="submit.php" method="POST">
+			<input name="csrf" type="hidden" value="'.csrfToken().'">
+			<input name="action" value="setWipes" hidden>';
+			echo '<tr>
+			<td>Username</td>
+			<td><p class="text-center"><input type="text" name="username" class="form-control" value="'.$userData['username'].'" readonly></td>
+			</tr>';
+			echo '<tr>
+			<td>ID</td>
+			<td><p class="text-center"><input type="number" name="id" class="form-control" value="'.$userData['id'].'" readonly></td>
+			</tr>';
+			echo '<tr>
+			<td>Current wipes</td>
+			<td><p class="text-center"><input type="number" name="cwipes" class="form-control" value="'.$userData['strikes'].'" readonly></td>
+			</tr>';
+			echo '<tr>
+			<td>New wipes</td>
+			<td><p class="text-center"><input type="number" name="nwipes" class="form-control"></td>
+			</tr>';
+			echo '</tbody></form>';
+			echo '</table>';
+			echo '<div class="text-center"><button type="submit" form="system-settings-form" class="btn btn-primary">Set wipes count</button></div>';
 			echo '</div>';
 		}
 		catch(Exception $e) {
@@ -1088,7 +1151,7 @@ class P {
 				foreach ($icons as $icon) {
 					echo'
 					<tr class="' . ($icon["is_current"] ? "success" : ($icon["is_default"] ? "warning": "")) . '">
-						<td><a href="https://i.ripple.moe/' . $icon["file_id"] . '.png" target="_blank">' . $icon["name"] . '</a> - <a href="' . $icon["url"] . '" target="_blank">' . $icon["url"] . '</td>
+						<td><a href="https://i.ppy.sh/' . $icon["file_id"] . '.png" target="_blank">' . $icon["name"] . '</a> - <a href="' . $icon["url"] . '" target="_blank">' . $icon["url"] . '</td>
 						<td style="text-align: right">
 							<a ' . ($icon["is_current"] ? "disabled" : "") . ' title="Set as main menu icon" class="btn btn-success btn-xs" href="submit.php?action=setMainMenuIcon&id=' . $icon["id"] . '&csrf='.csrfToken(). '"><i class="fa fa-check"></i></a>
 							<a ' . ($icon["is_default"] ? "disabled" : "") . ' title="Set as default main menu icon" class="btn btn-info btn-xs" href="submit.php?action=setDefaultMainMenuIcon&id=' . $icon["id"] . '&csrf='.csrfToken(). '"><i class="fa fa-asterisk"></i></a>
@@ -1200,6 +1263,54 @@ class P {
 	}
 
 	/*
+	 * AdminUserWipes
+	 * Prints the user wipes page
+	*/
+	public static function AdminUserWipes() {
+		// Get data
+		$first = false;
+		if (isset($_GET["from"])) {
+			$from = $_GET["from"];
+			$first = current($GLOBALS["db"]->fetch("SELECT id FROM user_wipes ORDER BY datetime DESC LIMIT 1")) == $from;
+		} else {
+			$from = current($GLOBALS["db"]->fetch("SELECT id FROM user_wipes ORDER BY datetime DESC LIMIT 1"));
+			$first = true;
+		}
+		$logs = $GLOBALS['db']->fetchAll('SELECT user_wipes.*, users.username FROM user_wipes LEFT JOIN users ON user_wipes.modid = users.id WHERE user_wipes.userid = ? ORDER BY user_wipes.datetime DESC', [$_GET['id']]);
+		echo '<div id="wrapper">';
+		printAdminSidebar();
+		echo '<div id="page-content-wrapper" style="text-align: left;">';
+		// Maintenance check
+		self::MaintenanceStuff();
+		// Print Success if set
+		if (isset($_GET['s']) && !empty($_GET['s'])) {
+			self::SuccessMessageStaccah($_GET['s']);
+		}
+		// Print Exception if set
+		if (isset($_GET['e']) && !empty($_GET['e'])) {
+			self::ExceptionMessageStaccah($_GET['e']);
+		}
+		// Header
+		echo '<span class="centered"><h2><i class="fa fa-eraser"></i>User wipes</h2></span>';
+		// Main page content here
+		echo '<div class="bubbles-container">';
+		if (!$logs) {
+			printBubbleUserWipes(999, "You", "have reached the end of the life the universe and everything. Now go fuck a donkey.", time()-(43*60), "The Hitchhiker's Guide to the Galaxy");
+		} else {
+			$lastDay = -1;
+			foreach ($logs as $entry) {
+				$currentDay = date("z", $entry["datetime"]);
+				if ($lastDay != $currentDay)
+					echo'<div class="line"><div class="line-text"><span class="label label-primary">' . date("d/m/Y", $entry["datetime"]) . '</span></div></div>';
+				printBubbleUserWipes($entry["modid"], $entry["username"], $entry["text"], $entry["datetime"], $entry["evidence"]);
+				$lastDay = $currentDay;
+			}
+		}
+		// Template end
+		echo '</div>';
+	}
+
+	/*
 	 * HomePage
 	 * Prints the homepage
 	*/
@@ -1214,24 +1325,10 @@ class P {
 		if (!empty($_GET['e']) && isset($error[$_GET['e']])) {
 			self::ExceptionMessage($error[$_GET['e']]);
 		}
-		$color = "pink";
-		if (mt_rand(0,9) == 0) {
-			switch(mt_rand(0,3)) {
-				case 0: $color = "red"; break;
-				case 1: $color = "blue"; break;
-				case 2: $color = "green"; break;
-				case 3: $color = "orange"; break;
-			}
-		}
 		echo '<p align="center">
-		<object data="images/logos/logo-'.$color.'.svg" type="image/svg+xml" class="animated bounceIn ripple-logo"></object>
+		<object data="images/logos/logo.png" type="image/png" class="animated bounceIn ripple-logo"></object>
 		</p>';
-		global $isBday;
-		if ($isBday) {
-			echo '<h1>Happy birthday Ripple!</h1>';
-		} else {
-			echo '<h1>Welcome to Ripple</h1>';
-		}
+		echo '<h1>Welcome to Kawata</h1>';
 		// Home alert
 		self::HomeAlert();
 	}
@@ -1315,6 +1412,7 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 			$pp = $userData['pp_'.$modeForDB];
 			$country = $userData['country'];
 			$usernameAka = $userData['username_aka'];
+			$usernameStrikes = $userData['strikes'];
 			$level = $userData['level_'.$modeForDB];
 			$latestActivity = $userData['latest_activity'];
 			$silenceEndTime = $userData['silence_end'];
@@ -2051,16 +2149,16 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 		self::GlobalAlert();
 		echo '<div class="narrow-content" style="width:500px"><h1><i class="fa fa-exclamation-circle"></i> Recover your password</h1>';
 		// Print Exception if set and in array.
-		$exceptions = ['Nice troll.', "That user doesn't exist.", "You are banned from Ripple. We won't let you come back in."];
+		$exceptions = ['Nice troll.', "That user doesn't exist.", "You are banned from Kawata. We won't let you come back in."];
 		if (isset($_GET['e']) && isset($exceptions[$_GET['e']])) {
 			self::ExceptionMessage($exceptions[$_GET['e']]);
 		}
 		if (isset($_GET['s'])) {
-			self::SuccessMessage('You should have received an email containing instructions on how to recover your Ripple account.');
+			self::SuccessMessage('You should have received an email containing instructions on how to recover your Kawata account.');
 		}
 		if (checkLoggedIn()) {
 			echo 'What are you doing here? You\'re already logged in, you moron!<br>';
-			echo 'If you really want to fake that you\'ve lost your password, you should at the very least log out of Ripple, you know.';
+			echo 'If you really want to fake that you\'ve lost your password, you should at the very least log out of Kawata, you know.';
 		} else {
 			echo '<p>Let\'s get some things straight. We can only help you if you DID put your actual email address when you signed up. If you didn\'t, you\'re screwed. Hope to know the admins well enough to tell them to change the password for you, otherwise your account is now dead.</p><br>
 			<form action="submit.php" method="POST">
@@ -2088,11 +2186,11 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 				throw new Exception();
 			}
 			// Mod/admin, show alert and continue
-			echo '<div class="alert alert-warning" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Ripple\'s website is in <b>maintenance mode</b>. Only moderators and administrators have access to the full website.</p></div>';
+			echo '<div class="alert alert-warning" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Kawata\'s website is in <b>maintenance mode</b>. Only moderators and administrators have access to the full website.</p></div>';
 		}
 		catch(Exception $e) {
 			// Normal user, show alert and die
-			echo '<div class="alert alert-warning" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Ripple\'s website is in <b>maintenance mode</b>. We are working for you, <b>please come back later.</b></p></div>';
+			echo '<div class="alert alert-warning" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Kawata\'s website is in <b>maintenance mode</b>. We are working for you, <b>please come back later.</b></p></div>';
 			die();
 		}
 	}
@@ -2112,11 +2210,11 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 				throw new Exception();
 			}
 			// Mod/admin, show alert and continue
-			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Ripple\'s score system is in <b>maintenance mode</b>. <u>Your scores won\'t be saved until maintenance ends.</u><br><b>Make sure to disable game maintenance mode from the admin control panel as soon as possible!</b></p></div>';
+			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Kawata\'s score system is in <b>maintenance mode</b>. <u>Your scores won\'t be saved until maintenance ends.</u><br><b>Make sure to disable game maintenance mode from the admin control panel as soon as possible!</b></p></div>';
 		}
 		catch(Exception $e) {
 			// Normal user, show alert and die
-			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Ripple\'s score system is in <b>maintenance mode</b>. <u>Your scores won\'t be saved until maintenance ends.</u></b></p></div>';
+			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-cog fa-spin"></i>	Kawata\'s score system is in <b>maintenance mode</b>. <u>Your scores won\'t be saved until maintenance ends.</u></b></p></div>';
 		}
 	}
 
@@ -2135,11 +2233,11 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 				throw new Exception();
 			}
 			// Mod/admin, show alert and continue
-			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-server"></i>	Ripple\'s Bancho server is in maintenance mode. You can\'t play on Ripple right now. Try again later.<br><b>Make sure to disable game maintenance mode from the admin control panel as soon as possible!</b></p></div>';
+			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-server"></i>	Kawata\'s Bancho server is in maintenance mode. You can\'t play on Kawata right now. Try again later.<br><b>Make sure to disable game maintenance mode from the admin control panel as soon as possible!</b></p></div>';
 		}
 		catch(Exception $e) {
 			// Normal user, show alert and die
-			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-server"></i>	Ripple\'s Bancho server is in maintenance mode. You can\'t play on Ripple right now. Try again later.</p></div>';
+			echo '<div class="alert alert-danger" role="alert"><p align="center"><i class="fa fa-server"></i>	Kawata\'s Bancho server is in maintenance mode. You can\'t play on Kawata right now. Try again later.</p></div>';
 		}
 	}
 
@@ -2552,7 +2650,7 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 
 		if (!hasPrivilege(Privileges::UserPublic)) {
 			echo '<div class="alert alert-danger" role="alert">
-					<p align="center"><i class="fa fa-exclamation-triangle"></i><b>Your account is currently in restricted mode</b> due to inappropriate behavior or a violation of the <a href=\'index.php?p=23\'>rules</a>.<br>You can\'t interact with other users, you can perform limited actions and your user profile and scores are hidden.<br>Read the <a href=\'index.php?p=23\'>rules</a> again carefully, and if you think this is an error, send an email to <b>support@ripple.moe</b>.</p>
+					<p align="center"><i class="fa fa-exclamation-triangle"></i><b>Your account is currently in restricted mode</b> due to inappropriate behavior or a violation of the <a href=\'index.php?p=23\'>rules</a>.<br>You can\'t interact with other users, you can perform limited actions and your user profile and scores are hidden.<br>Read the <a href=\'index.php?p=23\'>rules</a> again carefully, and if you think this is an error, send an email to <b>support@kawata.pw</b>.</p>
 				  </div>';
 		}
 	}
@@ -2723,6 +2821,10 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 			</select>
 			</td>
 			</tr>';
+			echo '<tr>
+			<td><p>Any link to an evidence that the player is unlegit.</p><p>This can be a video, a replay, or any sort of proof.</p></td>
+			<td><p class="text-center"><input type="text" name="evidence" class="form-control" value="'.$_GET["evidence"].'"></td>
+			</tr>';
 
 			echo '</tbody></form>';
 			echo '</table>';
@@ -2841,7 +2943,7 @@ WHERE users.$kind = ? LIMIT 1", [$u]);
 				$assignee = "Useless";
 			} else {
 				$rowClass = "";
-				$assignee = '<img class="circle" style="width: 30px; height: 30px; margin-top: 0px;" src="https://a.ripple.moe/' . $report['assigned'] . '"> ' . getUserUsername($report['assigned']);
+				$assignee = '<img class="circle" style="width: 30px; height: 30px; margin-top: 0px;" src="https://a.kawata.pw/' . $report['assigned'] . '"> ' . getUserUsername($report['assigned']);
 			}
 			echo '<tr class="' . $rowClass . '">
 			<td><p class="text-center">'.$report['id'].'</p></td>
