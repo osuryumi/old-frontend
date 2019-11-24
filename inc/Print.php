@@ -1326,9 +1326,9 @@ class P {
 			self::ExceptionMessage($error[$_GET['e']]);
 		}
 		echo '<p align="center">
-		<object data="images/logos/logo.png" type="image/png" class="animated bounceIn ripple-logo"></object>
+		<object data="/../images/logo.png" type="image/png" class="animated bounceIn ripple-logo"></object>
 		</p>';
-		echo '<h1>Welcome to Kawata</h1>';
+		echo '<h1>Welcome to Ryumi</h1>';
 		// Home alert
 		self::HomeAlert();
 	}

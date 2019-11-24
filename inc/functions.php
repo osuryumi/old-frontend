@@ -169,11 +169,11 @@ function setTitle($p) {
 			136 => 'User Wipes'
 		];
 		if (isset($namesRipple[$p])) {
-			return __maketitle('Kawata', $namesRipple[$p]);
+			return __maketitle('Ryumi', $namesRipple[$p]);
 		} else if (isset($namesRAP[$p])) {
 			return __maketitle('RAP', $namesRAP[$p]);
 		} else {
-			return __maketitle('Kawata', '404');
+			return __maketitle('Ryumi', '404');
 		}
 	}
 }
@@ -473,7 +473,7 @@ function printNavbar() {
 		// Just an easter egg that you'll probably never notice, unless you do it on purpose.
 		if (hasPrivilege(Privileges::AdminAccessRAP)) {
 			echo '<li><a href="index.php?p=100"><i class="fa fa-cog"></i>	<b>Admin Panel</b></a></li>';
-			echo '<li><a href="https://old.kawata.pw/phpmyadmin"><i class="fa fa-database"></i>	<b>phpMyAdmin</b></a></li>';
+			echo '<li><a href="https://old.ryumi.pw/phpmyadmin"><i class="fa fa-database"></i>	<b>phpMyAdmin</b></a></li>';
 		}
 	}
 	// Right elements
